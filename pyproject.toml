@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "remote-sensing-ssl"
+version = "0.1.0"
+description = ""
+authors = ["ehokage777"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.14"
+torch = "^2.11.0"
+torchvision = "^0.26.0"
+torchgeo = "^0.9.0"
+xarray = "^2026.2.0"
+pystac-client = "^0.9.0"
+odc-stac = "^0.5.2"
+geopandas = "^1.1.3"
+planetary-computer = "^1.0.0"
+netcdf4 = "^1.7.4"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^7.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
