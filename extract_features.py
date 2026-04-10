@@ -125,7 +125,7 @@ def select_dataset(
     elif dataset_id == "resisc45":
         dataset = Resisc45(
             root=root_dir + "/resisc45",
-            download=download_dataset,
+            download=True,
             split="val",
             transform=transform,
         )
@@ -170,19 +170,19 @@ if __name__ == "__main__":
 
     ## add extra features depending on dataset_id
     if args.dataset_id == "ghana":
-        names= []
+        names = []
         xmin = []
         xmax = []
         ymin = []
         ymax = []
-        
+
         for idx in df.index:
             xmin.append(dataset.bboxes[idx][0])
             xmax.append(dataset.bboxes[idx][1])
             ymin.append(dataset.bboxes[idx][2])
             ymax.append(dataset.bboxes[idx][3])
             names.append(dataset.files[idx])
-        
+
         df.insert(0, "image_name", names)
         df.insert(1, "x_min", xmin)
         df.insert(2, "x_max", xmax)
