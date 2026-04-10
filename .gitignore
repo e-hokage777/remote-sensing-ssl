@@ -1,3 +1,4 @@
 GeoSSL
 logs
 data
+*__pycache*

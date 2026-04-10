@@ -7,16 +7,16 @@ from typing import List
 
 
 class GhanaTileDataset(Dataset):
-    def __init__(self, root_dir: str, transforms=None) -> None:
+    def __init__(self, root_dir: str, transform=None) -> None:
         self.root_dir: str = root_dir
         self.files: List[str] = [f for f in os.listdir(root_dir) if f.endswith(".ncf")]
-        self.transforms = transforms
+        self.transforms = transform
 
         self.coordinates = []
         self.bboxes = []
         for file in self.files:
-            ds = xr.open_dataset(os.path.join(root_dir, file))
-            self.bboxes.append((ds.x.min(), ds.x.max(), ds.y.min(), ds.y.max()))
+            ds = xr.open_dataset(os.path.join(root_dir, file), engine="netcdf4")
+            self.bboxes.append((ds.x.values.min(), ds.x.values.max(), ds.y.values.min(), ds.y.values.max()))
 
     def __len__(self) -> int:
         return len(self.files)
@@ -39,4 +39,4 @@ class GhanaTileDataset(Dataset):
         if self.transforms is not None:
             rgb_tensor = self.transforms(rgb_tensor)
 
-        return rgb_tensor
+        return rgb_tensor, -1
