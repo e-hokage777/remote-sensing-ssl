@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from tqdm import tqdm
 from argparse import ArgumentParser
 
@@ -59,7 +61,19 @@ def get_locations_by_category(category, country="Ghana", limit: int | None = Non
     out ids center {limit};
     """
 
-    response = requests.get(OVERPASS_URL, params={"data": query})
+    session = requests.Session()
+
+    retry_strategy = Retry(
+        total=5,
+        status_forcelist=[429, 500, 502, 503, 504],
+        backoff_factor=2,
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount(OVERPASS_URL, adapter)
+
+    response = session.get(OVERPASS_URL, params={"data": query}, stream=True)
+
     response.raise_for_status()
     return response.json()
 
@@ -87,7 +101,7 @@ if __name__ == "__main__":
     print("Categories are ", ", ".join(categories))
 
     for category in tqdm(
-        categories[4:],
+        categories,
         desc=f"Extracting metadata for {args.limit} locations per category",
         unit="category",
         bar_format="{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt}",
