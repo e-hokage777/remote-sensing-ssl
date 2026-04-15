@@ -4,7 +4,8 @@
 ## visualize the clusters using matplotlib or seaborn
 import torch
 import numpy as np
-from GeoSSL.geossl.datasets import get_dataset_spec, EuroSATRGB, Resisc45, EuroSAT
+from typing import Union, cast
+from GeoSSL.geossl.datasets import get_dataset_spec, EuroSATRGB, Resisc45, EuroSAT 
 from scripts.gh_tile_dataset import GhanaTileDataset
 import pandas as pd
 import xarray as xr
@@ -14,7 +15,7 @@ import torchvision.transforms as T
 import torchvision.transforms.v2 as v2
 from tqdm import tqdm
 
-from GeoSSL.geossl.backbones import ResNetBackbone
+from GeoSSL.geossl.backbones import ResNetBackbone 
 
 
 def extract_features_to_dataframe(
@@ -36,7 +37,7 @@ def extract_features_to_dataframe(
     """
 
     # Sample indices if fraction < 1.0
-    total = len(dataset)
+    total = len(dataset)  # type: ignore
     if fraction < 1.0:
         sample_size = int(total * fraction)
         indices = np.random.choice(total, sample_size, replace=False)
@@ -74,7 +75,7 @@ def extract_features_to_dataframe(
 
 def select_dataset(
     dataset_id: str, download_dataset: bool = False
-) -> torch.utils.data.Dataset:
+) -> Union[EuroSAT, EuroSATRGB, Resisc45, GhanaTileDataset]:  # type: ignore
     """
     Selects the appropriate dataset given the dataset_id (eurosat, eurosat_rgb, resisc45, ghana)
 
@@ -131,7 +132,7 @@ def select_dataset(
         )
     elif dataset_id == "ghana":
         dataset = GhanaTileDataset(
-            root_dir=root_dir + "/ghana-grid-tiles", transform=transform
+            root_dir=root_dir + "/ghana-satellite-imgs", transform=transform
         )
     else:
         raise NotImplementedError(f"Dataset [{dataset_id}] not supported")
@@ -188,13 +189,15 @@ if __name__ == "__main__":
         df.insert(2, "x_max", xmax)
         df.insert(3, "y_min", ymin)
         df.insert(4, "y_max", ymax)
+        df.insert(5, "label", dataset.target)
     else:
+        dataset_cast = cast(Union[EuroSAT, EuroSATRGB, Resisc45], dataset)
         df.insert(
             0,
             "image_name",
-            [os.path.basename(dataset.imgs[idx][0]) for idx in df.index],
+            [os.path.basename(dataset_cast.imgs[idx][0]) for idx in df.index],
         )
-        df.insert(1, "label", [dataset.imgs[idx][1] for idx in df.index])
+        df.insert(1, "label", [dataset_cast.imgs[idx][1] for idx in df.index])
 
     root_dir = os.path.dirname(os.path.abspath(__file__)) + "/data/features/"
     df.to_csv(root_dir + args.export_csv, index=False)

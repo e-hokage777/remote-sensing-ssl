@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     files = glob(f"{args.input_dir}/*.geojson")
 
-    for file in files:
+    for file in files[3:]:
         category_name = os.path.basename(file).split(".")[0]
         print("Processing: ", category_name)
         locations = get_locations_from_json(file)
