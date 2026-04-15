@@ -8,12 +8,13 @@ import os
 from tqdm import tqdm
 from glob import glob
 import json
+from datetime import datetime
 from argparse import ArgumentParser
 from typing import Dict, List, Any
 
 
 def download_sentinel_image(
-    lat: float, lon: float, output_dir: str, tile_size: int = 640
+    lat: float, lon: float, output_dir: str, category_name:str, save_name:str, tile_size: int = 640
 ):
     """Download Sentinel-2 images for the given boundary and save them as NetCDF files."""
     meters_per_degree = 111320.0
@@ -42,14 +43,17 @@ def download_sentinel_image(
         return
 
     ## sorting items
-    items = sorted(items, key=lambda item: item.datetime)
-    item = items[-1]
+    items = sorted(items, key=lambda item: item.datetime or datetime(1900, 1, 1), reverse=True)
+    item = items[0]
     item = pc.sign(item)
 
     bands = ["red", "green", "blue"]
     data = stac_load([item], bands=bands, intersects=boundary)
+    data.attrs["category"] = category_name
+    data.attrs["lat"] = lat
+    data.attrs["lon"] = lon
 
-    save_name = os.path.join(output_dir, f"{item.id}.ncf")
+    save_name = os.path.join(output_dir, f"{save_name}.ncf")
     data.to_netcdf(save_name)
 
 
@@ -81,5 +85,7 @@ if __name__ == "__main__":
             download_sentinel_image(
                 location["center"]["lat"],
                 location["center"]["lon"],
-                output_dir=save_dir,
+                category_name=category_name,
+                save_name = location["id"],
+                output_dir=save_dir
             )
