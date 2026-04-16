@@ -8,9 +8,17 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.14"
-torch = "^2.11.0"
-torchvision = "^0.26.0"
+# torch = "^2.11.0"
+# torchvision = "^0.26.0"
 torchgeo = "^0.9.0"
+torch = [
+    { version = "^2.0.0", source = "python-gpu", markers = "sys_platform == 'win32'" },
+    { version = "^2.0.0", source = "PyPI", markers = "sys_platform != 'win32'" },
+]
+torchvision = [
+    { version = "^0.26.0", source = "python-gpu", markers = "sys_platform == 'win32'" },
+    { version = "^0.26.0", source = "PyPI", markers = "sys_platform != 'win32'" },
+]
 xarray = "^2026.2.0"
 pystac-client = "^0.9.0"
 odc-stac = "^0.5.2"
@@ -19,10 +27,17 @@ planetary-computer = "^1.0.0"
 netcdf4 = "^1.7.4"
 gdown = "^5.2.1"
 scikit-learn = "^1.8.0"
+optuna = "^4.8.0"
 
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^7.2.0"
+
+
+[[tool.poetry.source]]
+name = "python-gpu"
+url = "https://download.pytorch.org/whl/cu130"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

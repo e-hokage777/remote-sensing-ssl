@@ -14,7 +14,12 @@ from typing import Dict, List, Any
 
 
 def download_sentinel_image(
-    lat: float, lon: float, output_dir: str, category_name:str, save_name:str, tile_size: int = 640
+    lat: float,
+    lon: float,
+    output_dir: str,
+    category_name: str,
+    save_name: str,
+    tile_size: int = 640,
 ):
     """Download Sentinel-2 images for the given boundary and save them as NetCDF files."""
     meters_per_degree = 111320.0
@@ -43,7 +48,9 @@ def download_sentinel_image(
         return
 
     ## sorting items
-    items = sorted(items, key=lambda item: item.datetime or datetime(1900, 1, 1), reverse=True)
+    items = sorted(
+        items, key=lambda item: item.datetime or datetime(1900, 1, 1), reverse=True
+    )
     item = items[0]
     item = pc.sign(item)
 
@@ -65,8 +72,13 @@ def get_locations_from_json(json_path: str) -> List[Dict[str, Any]]:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True)
-    parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument(
+        "--input-dir",
+        type=str,
+        required=True,
+        help="Path to the input directory (directory containing geojson metadata files downloaded)",
+    )
+    parser.add_argument("--output-dir", type=str, required=True)
 
     args = parser.parse_args()
 
@@ -86,6 +98,6 @@ if __name__ == "__main__":
                 location["center"]["lat"],
                 location["center"]["lon"],
                 category_name=category_name,
-                save_name = location["id"],
-                output_dir=save_dir
+                save_name=location["id"],
+                output_dir=save_dir,
             )

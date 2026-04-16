@@ -5,7 +5,7 @@
 import torch
 import numpy as np
 from typing import Union, cast
-from GeoSSL.geossl.datasets import get_dataset_spec, EuroSATRGB, Resisc45, EuroSAT 
+from GeoSSL.geossl.datasets import get_dataset_spec, EuroSATRGB, Resisc45, EuroSAT
 from scripts.gh_tile_dataset import GhanaTileDataset
 import pandas as pd
 import xarray as xr
@@ -15,7 +15,7 @@ import torchvision.transforms as T
 import torchvision.transforms.v2 as v2
 from tqdm import tqdm
 
-from GeoSSL.geossl.backbones import ResNetBackbone 
+from GeoSSL.geossl.backbones import ResNetBackbone
 
 
 def extract_features_to_dataframe(
@@ -143,15 +143,15 @@ def select_dataset(
 if __name__ == "__main__":
     parser = ArgumentParser()
 
-    parser.add_argument("--root_dir", type=str, default="data/ghana-grid-tiles")
+    parser.add_argument("--output-dir", type=str, default="data/features")
     parser.add_argument("--fraction", type=float, default=1.0)
-    parser.add_argument("--backbone_type", type=str, default="resnet18")
-    parser.add_argument("--backbone_data", type=str, default="eurosat")
-    parser.add_argument("--dataset_id", type=str, default="eurosat_rgb")
+    parser.add_argument("--backbone-type", type=str, default="resnet18")
+    parser.add_argument("--backbone-data", type=str, default="eurosat")
+    parser.add_argument("--dataset-id", type=str, default="eurosat_rgb")
     parser.add_argument("--method", type=str, default="simclr")
     parser.add_argument("--device", type=str, default="cuda:0")
-    parser.add_argument("--export_csv", type=str, default="features.csv")
-    parser.add_argument("--download_dataset", action="store_true")
+    parser.add_argument("--export-csv", type=str, default="features.csv")
+    parser.add_argument("--download-dataset", action="store_true")
 
     args = parser.parse_args()
 
@@ -199,5 +199,4 @@ if __name__ == "__main__":
         )
         df.insert(1, "label", [dataset_cast.imgs[idx][1] for idx in df.index])
 
-    root_dir = os.path.dirname(os.path.abspath(__file__)) + "/data/features/"
-    df.to_csv(root_dir + args.export_csv, index=False)
+    df.to_csv(args.output_dir + args.export_csv, index=False)
