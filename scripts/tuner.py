@@ -1,14 +1,14 @@
 """
-Optuna Regression Tuning Pipeline
-==================================
+Optuna Classification Tuning Pipeline
+====================================
 Tunes preprocessing (PCA, scaling) and model hyperparameters
-for a regression task using Optuna's Bayesian optimisation.
+for a classification task using Optuna's Bayesian optimisation.
 
 Usage
 -----
-    from optuna_regression_tuner import RegressionTuner
+    from optuna_classification_tuner import ClassificationTuner
 
-    tuner = RegressionTuner(n_trials=100, cv=5, scoring="neg_root_mean_squared_error")
+    tuner = ClassificationTuner(n_trials=100, cv=5, scoring="f1_macro")
     tuner.fit(X_train, y_train)
     tuner.print_results()
 
@@ -17,8 +17,8 @@ Usage
 
 Type-checking
 -------------
-    mypy  optuna_regression_tuner.py --strict
-    pyright optuna_regression_tuner.py
+    mypy  optuna_classification_tuner.py --strict
+    pyright optuna_classification_tuner.py
 """
 
 from __future__ import annotations
@@ -27,18 +27,25 @@ import warnings
 from typing import Any, Literal, TypeAlias, TypedDict
 
 import numpy as np
-import optuna
 from numpy.typing import ArrayLike, NDArray
-from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.decomposition import PCA
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import ElasticNet, Lasso, Ridge
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    RandomForestClassifier,
+)
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler
-from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import f1_score
+from argparse import ArgumentParser
+import pandas as pd
+
+import optuna
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 warnings.filterwarnings("ignore")
@@ -48,8 +55,8 @@ warnings.filterwarnings("ignore")
 # Domain type aliases
 # ---------------------------------------------------------------------------
 
-#: Any sklearn-compatible regressor.
-Regressor: TypeAlias = RegressorMixin
+#: Any sklearn-compatible classifier.
+Classifier: TypeAlias = ClassifierMixin
 
 #: Any sklearn-compatible transformer (scaler, PCA, …).
 Transformer: TypeAlias = TransformerMixin
@@ -65,13 +72,11 @@ ScalerChoice: TypeAlias = Literal["standard", "maxabs", "none"]
 
 #: Supported model names surfaced to Optuna.
 ModelName: TypeAlias = Literal[
-    "ridge",
-    "lasso",
-    "elasticnet",
+    "logistic_regression",
     "decision_tree",
     "random_forest",
     "gradient_boosting",
-    "svr",
+    "svc",
     "knn",
 ]
 
@@ -89,8 +94,9 @@ TargetVector: TypeAlias = NDArray[np.float64]
 # TypedDicts for structured return values
 # ---------------------------------------------------------------------------
 
+
 class TrialSummary(TypedDict):
-    """One entry in the list returned by :meth:`RegressionTuner.top_trials`."""
+    """One entry in the list returned by :meth:`ClassificationTuner.top_trials`."""
 
     rank: int
     score: float
@@ -101,9 +107,10 @@ class TrialSummary(TypedDict):
 # Model catalogue
 # ---------------------------------------------------------------------------
 
-def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
+
+def _build_model(trial: optuna.Trial) -> tuple[ModelName, Classifier]:
     """
-    Suggest a regression model and its hyperparameters.
+    Suggest a classification model and its hyperparameters.
 
     Parameters
     ----------
@@ -112,43 +119,44 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
 
     Returns
     -------
-    tuple[ModelName, Regressor]
+    tuple[ModelName, Classifier]
         ``(model_name, unfitted_estimator)``
     """
     model_name: ModelName = trial.suggest_categorical(  # type: ignore[assignment]
         "model",
         [
-            "ridge",
-            "lasso",
-            "elasticnet",
+            "logistic_regression",
             "decision_tree",
             "random_forest",
             "gradient_boosting",
-            "svr",
+            "svc",
             "knn",
         ],
     )
 
-    model: Regressor
+    model: Classifier
 
-    if model_name == "ridge":
-        alpha: float = trial.suggest_float("ridge__alpha", 1e-3, 1e3, log=True)
-        model = Ridge(alpha=alpha)
-
-    elif model_name == "lasso":
-        alpha = trial.suggest_float("lasso__alpha", 1e-3, 1e2, log=True)
-        model = Lasso(alpha=alpha, max_iter=5_000)
-
-    elif model_name == "elasticnet":
-        alpha = trial.suggest_float("en__alpha", 1e-3, 1e2, log=True)
-        l1_ratio: float = trial.suggest_float("en__l1_ratio", 0.0, 1.0)
-        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=5_000)
+    if model_name == "logistic_regression":
+        penalty: Literal["l2", "none"] = trial.suggest_categorical(
+            "logistic_regression__penalty", ["l2", "none"]
+        )
+        C: float = trial.suggest_float("logistic_regression__C", 1e-3, 1e3, log=True)
+        solver: Literal["lbfgs", "saga"] = trial.suggest_categorical(
+            "logistic_regression__solver", ["lbfgs", "saga"]
+        )
+        model = LogisticRegression(
+            penalty=penalty,
+            C=C,
+            solver=solver,
+            max_iter=5_000,
+            random_state=42,
+        )
 
     elif model_name == "decision_tree":
-        max_depth: int         = trial.suggest_int("dt__max_depth",         2, 20)
+        max_depth: int = trial.suggest_int("dt__max_depth", 2, 20)
         min_samples_split: int = trial.suggest_int("dt__min_samples_split", 2, 20)
-        min_samples_leaf: int  = trial.suggest_int("dt__min_samples_leaf",  1, 10)
-        model = DecisionTreeRegressor(
+        min_samples_leaf: int = trial.suggest_int("dt__min_samples_leaf", 1, 10)
+        model = DecisionTreeClassifier(
             max_depth=max_depth,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
@@ -156,11 +164,11 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
         )
 
     elif model_name == "random_forest":
-        n_estimators: int   = trial.suggest_int(  "rf__n_estimators",    50, 500)
-        max_depth           = trial.suggest_int(  "rf__max_depth",         2,  20)
-        min_samples_split   = trial.suggest_int(  "rf__min_samples_split", 2,  20)
-        max_features: float = trial.suggest_float("rf__max_features",     0.3, 1.0)
-        model = RandomForestRegressor(
+        n_estimators: int = trial.suggest_int("rf__n_estimators", 50, 500)
+        max_depth = trial.suggest_int("rf__max_depth", 2, 20)
+        min_samples_split = trial.suggest_int("rf__min_samples_split", 2, 20)
+        max_features: float = trial.suggest_float("rf__max_features", 0.3, 1.0)
+        model = RandomForestClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
             min_samples_split=min_samples_split,
@@ -170,12 +178,14 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
         )
 
     elif model_name == "gradient_boosting":
-        n_estimators          = trial.suggest_int(  "gb__n_estimators",     50, 500)
-        max_depth             = trial.suggest_int(  "gb__max_depth",          2,   8)
-        learning_rate: float  = trial.suggest_float("gb__learning_rate",   0.01, 0.3, log=True)
-        subsample: float      = trial.suggest_float("gb__subsample",        0.5, 1.0)
-        min_samples_split     = trial.suggest_int(  "gb__min_samples_split", 2,  20)
-        model = GradientBoostingRegressor(
+        n_estimators = trial.suggest_int("gb__n_estimators", 50, 500)
+        max_depth = trial.suggest_int("gb__max_depth", 2, 8)
+        learning_rate: float = trial.suggest_float(
+            "gb__learning_rate", 0.01, 0.3, log=True
+        )
+        subsample: float = trial.suggest_float("gb__subsample", 0.5, 1.0)
+        min_samples_split = trial.suggest_int("gb__min_samples_split", 2, 20)
+        model = GradientBoostingClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
             learning_rate=learning_rate,
@@ -184,20 +194,17 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
             random_state=42,
         )
 
-    elif model_name == "svr":
-        C: float       = trial.suggest_float("svr__C",       1e-2, 1e3, log=True)
-        epsilon: float = trial.suggest_float("svr__epsilon",  0.0,  1.0)
+    elif model_name == "svc":
+        C: float = trial.suggest_float("svc__C", 1e-2, 1e3, log=True)
         kernel: Literal["linear", "rbf", "poly"] = trial.suggest_categorical(  # type: ignore[assignment]
-            "svr__kernel", ["linear", "rbf", "poly"]
+            "svc__kernel", ["linear", "rbf", "poly"]
         )
+        svc_kwargs: dict[str, Any] = {"C": C, "kernel": kernel}
         if kernel == "rbf":
-            gamma: float = trial.suggest_float("svr__gamma", 1e-4, 1.0, log=True)
-            model = SVR(C=C, epsilon=epsilon, kernel=kernel, gamma=gamma)
+            svc_kwargs["gamma"] = trial.suggest_float("svc__gamma", 1e-4, 1.0, log=True)
         elif kernel == "poly":
-            degree: int = trial.suggest_int("svr__degree", 2, 4)
-            model = SVR(C=C, epsilon=epsilon, kernel=kernel, degree=degree)
-        else:
-            model = SVR(C=C, epsilon=epsilon, kernel=kernel)
+            svc_kwargs["degree"] = trial.suggest_int("svc__degree", 2, 4)
+        model = SVC(**svc_kwargs)
 
     elif model_name == "knn":
         n_neighbors: int = trial.suggest_int("knn__n_neighbors", 1, 30)
@@ -205,7 +212,7 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
             "knn__weights", ["uniform", "distance"]
         )
         p: int = trial.suggest_int("knn__p", 1, 2)  # 1 = Manhattan, 2 = Euclidean
-        model = KNeighborsRegressor(
+        model = KNeighborsClassifier(
             n_neighbors=n_neighbors,
             weights=weights,
             p=p,
@@ -221,6 +228,7 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Regressor]:
 # ---------------------------------------------------------------------------
 # Preprocessing catalogue
 # ---------------------------------------------------------------------------
+
 
 def _build_preprocessor(trial: optuna.Trial, n_features: int) -> list[PipelineStep]:
     """
@@ -257,8 +265,8 @@ def _build_preprocessor(trial: optuna.Trial, n_features: int) -> list[PipelineSt
     # ── PCA ──────────────────────────────────────────────────────────────────
     use_pca: bool = trial.suggest_categorical("use_pca", [True, False])  # type: ignore[assignment]
     if use_pca:
-        max_components: int = max(1, n_features - 1)
-        n_components: int   = trial.suggest_int("pca__n_components", 1, max_components)
+        max_components: int = max(1, 20)
+        n_components: int = trial.suggest_int("pca__n_components", 1, max_components)
         steps.append(("pca", PCA(n_components=n_components)))
 
     return steps
@@ -268,9 +276,10 @@ def _build_preprocessor(trial: optuna.Trial, n_features: int) -> list[PipelineSt
 # Main tuner class
 # ---------------------------------------------------------------------------
 
-class RegressionTuner:
+
+class ClassificationTuner:
     """
-    Optuna-powered regression tuner.
+    Optuna-powered classification tuner.
 
     Parameters
     ----------
@@ -279,7 +288,7 @@ class RegressionTuner:
     cv:
         Number of cross-validation folds (default ``5``).
     scoring:
-        sklearn scoring string, e.g. ``"neg_root_mean_squared_error"``,
+        sklearn scoring string, e.g. ``"f1_macro"``, ``"f1_weighted"``
         ``"neg_mean_absolute_error"``, ``"r2"``
         (default ``"neg_root_mean_squared_error"``).
     direction:
@@ -313,44 +322,42 @@ class RegressionTuner:
         self,
         n_trials: int = 100,
         cv: int = 5,
-        scoring: str = "neg_root_mean_squared_error",
+        scoring: str = "f1_macro",
         direction: Direction | None = None,
         study_name: str | None = None,
         random_state: int = 42,
         verbose: bool = True,
     ) -> None:
-        self.n_trials: int     = n_trials
-        self.cv: int           = cv
-        self.scoring: str      = scoring
+        self.n_trials: int = n_trials
+        self.cv: int = cv
+        self.scoring: str = scoring
         self.random_state: int = random_state
-        self.verbose: bool     = verbose
-        self.study_name: str   = study_name or "regression_tuning"
+        self.verbose: bool = verbose
+        self.study_name: str = study_name or "classification_tuning"
 
         # Auto-infer direction
         self.direction: Direction
         if direction is not None:
             self.direction = direction
-        elif scoring.startswith("neg_") or scoring == "r2":
-            self.direction = "maximize"
         else:
-            self.direction = "minimize"
+            self.direction = "maximize"
 
         # Populated by fit()
-        self.study_: optuna.Study | None     = None
+        self.study_: optuna.Study | None = None
         self.best_pipeline_: Pipeline | None = None
         self.best_params_: ParamsDict | None = None
-        self.best_score_: float | None       = None
-        self._X: FeatureMatrix | None        = None
-        self._y: TargetVector | None         = None
+        self.best_score_: float | None = None
+        self._X: FeatureMatrix | None = None
+        self._y: TargetVector | None = None
 
     # ------------------------------------------------------------------
     # Internal objective
     # ------------------------------------------------------------------
 
     def _objective(self, trial: optuna.Trial) -> float:
-        assert self._X is not None and self._y is not None, (
-            "_X and _y must be set before calling _objective"
-        )
+        assert (
+            self._X is not None and self._y is not None
+        ), "_X and _y must be set before calling _objective"
 
         n_features: int = self._X.shape[1]
         pre_steps: list[PipelineStep] = _build_preprocessor(trial, n_features)
@@ -371,7 +378,7 @@ class RegressionTuner:
     # Public API
     # ------------------------------------------------------------------
 
-    def fit(self, X: ArrayLike, y: ArrayLike) -> "RegressionTuner":
+    def fit(self, X: ArrayLike, y: ArrayLike) -> "ClassificationTuner":
         """
         Run the Optuna study and refit the best pipeline on all data.
 
@@ -384,7 +391,7 @@ class RegressionTuner:
 
         Returns
         -------
-        RegressionTuner
+        ClassificationTuner
             ``self`` (for method chaining).
         """
         self._X = np.asarray(X, dtype=np.float64)
@@ -394,9 +401,11 @@ class RegressionTuner:
             seed=self.random_state
         )
         self.study_ = optuna.create_study(
-            direction=self.direction,
+            storage="sqlite:///tuning/classification_tuning.db",
             study_name=self.study_name,
+            direction=self.direction,
             sampler=sampler,
+            load_if_exists=True,
         )
         self.study_.optimize(
             self._objective,
@@ -406,7 +415,7 @@ class RegressionTuner:
 
         best: optuna.trial.FrozenTrial = self.study_.best_trial
         self.best_params_ = best.params
-        self.best_score_  = float(best.value)  # type: ignore[arg-type]
+        self.best_score_ = float(best.value)  # type: ignore[arg-type]
 
         # Reconstruct the best pipeline and refit on full data
         n_features: int = self._X.shape[1]
@@ -445,25 +454,21 @@ class RegressionTuner:
         return steps
 
     @staticmethod
-    def _model_from_params(params: ParamsDict) -> tuple[ModelName, Regressor]:
-        """Reconstruct an unfitted regressor from a completed trial's params dict."""
+    def _model_from_params(params: ParamsDict) -> tuple[ModelName, Classifier]:
+        """Reconstruct an unfitted classifier from a completed trial's params dict."""
         mn: ModelName = params["model"]
 
-        if mn == "ridge":
-            return mn, Ridge(alpha=float(params["ridge__alpha"]))
-
-        if mn == "lasso":
-            return mn, Lasso(alpha=float(params["lasso__alpha"]), max_iter=5_000)
-
-        if mn == "elasticnet":
-            return mn, ElasticNet(
-                alpha=float(params["en__alpha"]),
-                l1_ratio=float(params["en__l1_ratio"]),
+        if mn == "logistic_regression":
+            return mn, LogisticRegression(
+                penalty=params["logistic_regression__penalty"],
+                C=float(params["logistic_regression__C"]),
+                solver=params["logistic_regression__solver"],
                 max_iter=5_000,
+                random_state=42,
             )
 
         if mn == "decision_tree":
-            return mn, DecisionTreeRegressor(
+            return mn, DecisionTreeClassifier(
                 max_depth=int(params["dt__max_depth"]),
                 min_samples_split=int(params["dt__min_samples_split"]),
                 min_samples_leaf=int(params["dt__min_samples_leaf"]),
@@ -471,7 +476,7 @@ class RegressionTuner:
             )
 
         if mn == "random_forest":
-            return mn, RandomForestRegressor(
+            return mn, RandomForestClassifier(
                 n_estimators=int(params["rf__n_estimators"]),
                 max_depth=int(params["rf__max_depth"]),
                 min_samples_split=int(params["rf__min_samples_split"]),
@@ -481,7 +486,7 @@ class RegressionTuner:
             )
 
         if mn == "gradient_boosting":
-            return mn, GradientBoostingRegressor(
+            return mn, GradientBoostingClassifier(
                 n_estimators=int(params["gb__n_estimators"]),
                 max_depth=int(params["gb__max_depth"]),
                 learning_rate=float(params["gb__learning_rate"]),
@@ -490,21 +495,20 @@ class RegressionTuner:
                 random_state=42,
             )
 
-        if mn == "svr":
-            kernel: Literal["linear", "rbf", "poly"] = params["svr__kernel"]
-            svr_kwargs: dict[str, Any] = {
-                "C": float(params["svr__C"]),
-                "epsilon": float(params["svr__epsilon"]),
+        if mn == "svc":
+            kernel: Literal["linear", "rbf", "poly"] = params["svc__kernel"]
+            svc_kwargs: dict[str, Any] = {
+                "C": float(params["svc__C"]),
                 "kernel": kernel,
             }
             if kernel == "rbf":
-                svr_kwargs["gamma"] = float(params["svr__gamma"])
+                svc_kwargs["gamma"] = float(params["svc__gamma"])
             elif kernel == "poly":
-                svr_kwargs["degree"] = int(params["svr__degree"])
-            return mn, SVR(**svr_kwargs)
+                svc_kwargs["degree"] = int(params["svc__degree"])
+            return mn, SVC(**svc_kwargs)
 
         if mn == "knn":
-            return mn, KNeighborsRegressor(
+            return mn, KNeighborsClassifier(
                 n_neighbors=int(params["knn__n_neighbors"]),
                 weights=params["knn__weights"],
                 p=int(params["knn__p"]),
@@ -525,7 +529,7 @@ class RegressionTuner:
 
         sep: str = "─" * 60
         print(f"\n{sep}")
-        print("  OPTUNA REGRESSION TUNING — RESULTS")
+        print("  OPTUNA CLASSIFICATION TUNING — RESULTS")
         print(sep)
         print(f"  Trials completed : {len(self.study_.trials)}")
         print(f"  Scoring metric   : {self.scoring}  ({self.direction})")
@@ -587,7 +591,7 @@ class RegressionTuner:
             if trial.value is None:
                 continue
             mn: ModelName = trial.params.get("model", "unknown")  # type: ignore[assignment]
-            score: float  = float(trial.value)
+            score: float = float(trial.value)
             if mn not in best:
                 best[mn] = score
             elif reverse:
@@ -603,31 +607,33 @@ class RegressionTuner:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    from sklearn.datasets import fetch_california_housing
-    from sklearn.metrics import root_mean_squared_error
     from sklearn.model_selection import train_test_split
 
-    print("Loading California Housing dataset …")
-    housing_data = fetch_california_housing()
-    X_all: FeatureMatrix = housing_data.data.astype(np.float64)
-    y_all: TargetVector  = housing_data.target.astype(np.float64)
+    parser = ArgumentParser()
+    parser.add_argument("--dataset", type=str, required=True, help="Path to csv file")
+    args = parser.parse_args()
+
+    df = pd.read_csv(args.dataset).dropna(axis=0)  ## TODO: make sure to make this part of the pipeline (imputation)
+    X_all: NDArray[np.float64] = df.filter(regex="^feature").values
+    y_all: NDArray[np.float64] = df["label"].values
+    
 
     X_train, X_test, y_train, y_test = train_test_split(
         X_all, y_all, test_size=0.2, random_state=42
     )
 
-    tuner: RegressionTuner = RegressionTuner(
-        n_trials=60,
+    tuner: ClassificationTuner = ClassificationTuner(
+        n_trials=100,
         cv=5,
-        scoring="neg_root_mean_squared_error",
+        scoring="f1_macro",
         verbose=True,
     )
     tuner.fit(X_train, y_train)
 
     assert tuner.best_pipeline_ is not None
-    preds: NDArray[np.float64] = tuner.best_pipeline_.predict(X_test)
-    rmse: float = float(root_mean_squared_error(y_test, preds))
-    print(f"\n  Test RMSE: {rmse:.4f}")
+    preds = tuner.best_pipeline_.predict(X_test)
+    test_f1: float = f1_score(y_test, preds, average="macro")
+    print(f"\n  Test F1 (macro): {test_f1:.4f}")
 
     print("\n  ── Model comparison (best CV score per family) ──")
     for model_name, score in tuner.model_comparison().items():
