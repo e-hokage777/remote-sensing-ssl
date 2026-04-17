@@ -411,7 +411,7 @@ class ClassificationTuner:
         self.study_.optimize(
             self._objective,
             n_trials=self.n_trials,
-            show_progress_bar=False,
+            show_progress_bar=True,
         )
 
         best: optuna.trial.FrozenTrial = self.study_.best_trial
@@ -627,9 +627,9 @@ if __name__ == "__main__":
     ## splitting dataset into test and train
     df = pd.read_csv(args.dataset).dropna(
         axis=0
-    )  ## TODO: make sure to make this part of the pipeline (imputation)
-    filenames = [os.path.basename(os.path.basename(path)) for path in df["image_name"].values] ## TODO: Make this better
-    print(filenames[0])
+    ).reset_index(drop=True)  ## TODO: make sure to make this part of the pipeline (imputation)
+    filenames = [os.path.basename(path) for path in df["image_name"].values] ## TODO: Make this better
+
 
     train_idxs = []
     test_idxs = []
@@ -646,11 +646,6 @@ if __name__ == "__main__":
     X_test = X_all[test_idxs]
     y_train = y_all[train_idxs]
     y_test = y_all[test_idxs]
-
-    print(X_train.shape)
-    print(X_test.shape)
-    print(y_train.shape)
-    print(y_test.shape)
 
     tuner: ClassificationTuner = ClassificationTuner(
         n_trials=100,
