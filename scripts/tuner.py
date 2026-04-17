@@ -145,7 +145,7 @@ def _build_model(trial: optuna.Trial) -> tuple[ModelName, Classifier]:
             "logistic_regression__solver", ["lbfgs", "saga"]
         )
         model = LogisticRegression(
-            penalty=penalty,
+            penalty=None if penalty == "none" else penalty,
             C=C,
             solver=solver,
             max_iter=5_000,
