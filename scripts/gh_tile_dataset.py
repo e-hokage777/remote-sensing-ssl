@@ -16,11 +16,12 @@ class GhanaTileDataset(Dataset):
         self.transforms = transform
         self.class_to_idx = {}
         self.target = []
+        
 
         self.coordinates = []
         self.bboxes = []
         for file in self.files:
-            ds = xr.open_dataset(os.path.join(root_dir, file), engine="netcdf4")
+            ds = xr.open_dataset(file, engine="netcdf4")
             self.bboxes.append(
                 (
                     ds.x.values.min(),
@@ -51,7 +52,7 @@ class GhanaTileDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
-        file_path: str = os.path.join(self.root_dir, self.files[idx])
+        file_path: str = self.files[idx]
         ds = xr.open_dataset(file_path)
 
         # Extract RGB bands

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import warnings
 from typing import Any, Literal, TypeAlias, TypedDict
+import os
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -613,14 +614,43 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, required=True, help="Path to csv file")
     args = parser.parse_args()
 
-    df = pd.read_csv(args.dataset).dropna(axis=0)  ## TODO: make sure to make this part of the pipeline (imputation)
+    ## getting train and test file names
+    train_file_names = []
+    test_file_names = []
+
+    with open("data/features/ghana/train.txt", "r") as f:
+        train_file_names = f.read().splitlines()
+
+    with open("data/features/ghana/test.txt", "r") as f:
+        test_file_names = f.read().splitlines()
+
+    ## splitting dataset into test and train
+    df = pd.read_csv(args.dataset).dropna(
+        axis=0
+    )  ## TODO: make sure to make this part of the pipeline (imputation)
+    filenames = [os.path.basename(os.path.basename(path)) for path in df["image_name"].values] ## TODO: Make this better
+    print(filenames[0])
+
+    train_idxs = []
+    test_idxs = []
+    for index, row in df.iterrows():
+        if filenames[index] in train_file_names:
+            train_idxs.append(index)
+        elif filenames[index] in test_file_names:
+            test_idxs.append(index)
+
     X_all: NDArray[np.float64] = df.filter(regex="^feature").values
     y_all: NDArray[np.float64] = df["label"].values
-    
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_all, y_all, test_size=0.2, random_state=42
-    )
+    X_train = X_all[train_idxs]
+    X_test = X_all[test_idxs]
+    y_train = y_all[train_idxs]
+    y_test = y_all[test_idxs]
+
+    print(X_train.shape)
+    print(X_test.shape)
+    print(y_train.shape)
+    print(y_test.shape)
 
     tuner: ClassificationTuner = ClassificationTuner(
         n_trials=100,

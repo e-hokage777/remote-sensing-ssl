@@ -3,6 +3,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from tqdm import tqdm
 from argparse import ArgumentParser
+import os
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
@@ -84,6 +85,9 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--output_dir", type=str, default="data/ghana-locations")
     args = parser.parse_args()
+    
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     categories = [
         "annual_crop",

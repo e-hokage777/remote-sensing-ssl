@@ -75,16 +75,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input-dir",
         type=str,
-        required=True,
         help="Path to the input directory (directory containing geojson metadata files downloaded)",
+        default="data/ghana-locations",
     )
-    parser.add_argument("--output-dir", type=str, required=True)
+    parser.add_argument("--output-dir", type=str, default="data/ghana-satellite-imgs")
 
     args = parser.parse_args()
 
     files = glob(f"{args.input_dir}/*.geojson")
 
-    for file in files[3:]:
+    for file in files:
         category_name = os.path.basename(file).split(".")[0]
         print("Processing: ", category_name)
         locations = get_locations_from_json(file)
@@ -93,6 +93,9 @@ if __name__ == "__main__":
 
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir, exist_ok=True)
+                
+            if os.path.exists(os.path.join(save_dir, f"{location['id']}.ncf")):
+                continue
 
             download_sentinel_image(
                 location["center"]["lat"],

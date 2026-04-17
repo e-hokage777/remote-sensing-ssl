@@ -107,7 +107,7 @@ def select_dataset(
         ]
     )
 
-    root_dir = os.path.dirname(os.path.abspath(__file__)) + "/data"
+    root_dir = "data"
     if dataset_id == "eurosat":
         dataset = EuroSAT(
             root=root_dir + "/eurosat",
