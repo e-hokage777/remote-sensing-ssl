@@ -612,6 +612,10 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--dataset", type=str, required=True, help="Path to csv file")
+    parser.add_argument(
+        "--n-trials", type=int, default=100, help="Number of trials to run"
+    )
+    parser.add_argument("--study-name", type=str, default=None, help="Name of study")
     args = parser.parse_args()
 
     ## getting train and test file names
@@ -625,11 +629,12 @@ if __name__ == "__main__":
         test_file_names = f.read().splitlines()
 
     ## splitting dataset into test and train
-    df = pd.read_csv(args.dataset).dropna(
-        axis=0
-    ).reset_index(drop=True)  ## TODO: make sure to make this part of the pipeline (imputation)
-    filenames = [os.path.basename(path) for path in df["image_name"].values] ## TODO: Make this better
-
+    df = (
+        pd.read_csv(args.dataset).dropna(axis=0).reset_index(drop=True)
+    )  ## TODO: make sure to make this part of the pipeline (imputation)
+    filenames = [
+        os.path.basename(path) for path in df["image_name"].values
+    ]  ## TODO: Make this better
 
     train_idxs = []
     test_idxs = []
@@ -648,10 +653,11 @@ if __name__ == "__main__":
     y_test = y_all[test_idxs]
 
     tuner: ClassificationTuner = ClassificationTuner(
-        n_trials=100,
+        n_trials=args.n_trials,
         cv=5,
         scoring="f1_macro",
         verbose=True,
+        study_name=args.study_name if args.study_name else args.dataset.split(".")[0],
     )
     tuner.fit(X_train, y_train)
 
