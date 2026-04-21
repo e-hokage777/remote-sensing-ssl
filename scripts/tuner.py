@@ -657,7 +657,7 @@ if __name__ == "__main__":
         cv=5,
         scoring="f1_macro",
         verbose=True,
-        study_name=args.study_name if args.study_name else args.dataset.split(".")[0],
+        study_name=args.study_name if args.study_name else os.path.basename(args.dataset).split(".")[0],
     )
     tuner.fit(X_train, y_train)
 
