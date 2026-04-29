@@ -16,6 +16,7 @@ class GhanaTileDataset(Dataset):
         self.transforms = transform
         self.class_to_idx = {}
         self.target = []
+        self.target_names = []
         
 
         self.coordinates = []
@@ -32,6 +33,7 @@ class GhanaTileDataset(Dataset):
             )
 
             if "category" in ds.attrs:
+                self.target_names.append(ds.attrs["category"])
                 if ds.attrs["category"] in self.class_to_idx:
                     self.target.append(self.class_to_idx[ds.attrs["category"]])
                 else:

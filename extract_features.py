@@ -190,6 +190,7 @@ if __name__ == "__main__":
         df.insert(3, "y_min", ymin)
         df.insert(4, "y_max", ymax)
         df.insert(5, "label", dataset.target)
+        df.insert(6, "label_names", dataset.target_names)
     else:
         dataset_cast = cast(Union[EuroSAT, EuroSATRGB, Resisc45], dataset)
         df.insert(
