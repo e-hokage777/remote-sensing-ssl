@@ -29,7 +29,6 @@ def plot_scatter(
         component_2
     ), "Both components must have the same length"
 
-    print(c)
     
     if c is not None:
         # Get unique labels and create a color map
@@ -81,7 +80,8 @@ def generate_plot(root_dir: str, dataset_id: str, save_path: str):
             component_2=features_decomposed["component_1"],
             title=title,
             axis=axes[i],
-            c=df["label"] if "label" in df.columns else None,
+            c=df["label_names"] if "label_names" in df.columns else None,
+            # c=df["label"] if "label" in df.columns else None,
         )
 
     # plt.colorbar()
@@ -94,9 +94,10 @@ def generate_individual_plots(root_dir: str, dataset_id: str, save_path: str):
 
     assert len(files) > 0, f"No csv files found like {root_dir}/{dataset_id}*.csv"
 
-    fig, axis = plt.subplots(1, 1, figsize=(12, 6))
+    
 
     for i, file in enumerate(files):
+        fig, axis = plt.subplots(1, 1, figsize=(12, 6))
         title = os.path.basename(file).split(".")[0]
         print("Processing", file)
         df = pd.read_csv(file)
@@ -108,12 +109,13 @@ def generate_individual_plots(root_dir: str, dataset_id: str, save_path: str):
             component_2=features_decomposed["component_1"],
             title=title,
             axis=axis,
-            c=df["label"] if "label" in df.columns else None,
+            c=df["label_names"] if "label_names" in df.columns else None,
         )
 
         # plt.colorbar()
         plt.tight_layout()
-        plt.savefig(save_path + os.path.basename(file).split(".")[0] + ".png")
+        plt.savefig(save_path + "-" + os.path.basename(file).split(".")[0] + ".png")
+        plt.close()
 
 
 if __name__ == "__main__":
