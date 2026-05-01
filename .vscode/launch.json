@@ -1,0 +1,18 @@
+{
+
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Generate Predictions Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/generate_predictions.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--split-dir", "data/features/ghana",
+                "--input-dir", "data/features/ghana",
+                "--output-dir", "predictions"
+            ]
+        }
+    ]
+}
