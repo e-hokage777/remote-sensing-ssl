@@ -1,19 +1,29 @@
 {
-
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Generate Predictions Debug",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/scripts/generate_predictions.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--split-dir", "data/features/ghana",
-                "--input-dir", "data/features/ghana",
-                "--output-dir", "predictions",
-                "--model-id", "svm"
-            ]
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Download Sat Images",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/download-sentinel-images.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Generate Predictions Debug",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/generate_predictions.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--split-dir",
+        "data/features/ghana",
+        "--input-dir",
+        "data/features/ghana",
+        "--output-dir",
+        "predictions",
+        "--model-id",
+        "svm"
+      ]
+    }
+  ]
 }

@@ -22,6 +22,11 @@ def download_sentinel_image(
     tile_size: int = 640,
 ):
     """Download Sentinel-2 images for the given boundary and save them as NetCDF files."""
+    save_path = os.path.join(output_dir, f"{save_name}.ncf")
+    
+    if os.path.exists(save_path):
+        return
+    
     meters_per_degree = 111320.0
     tile_size_degrees = tile_size / meters_per_degree
 
@@ -38,7 +43,7 @@ def download_sentinel_image(
     search = client.search(
         collections=["sentinel-2-l2a"],
         intersects=boundary,
-        datetime="2025-12-01/2026-04-08",
+        datetime="2025-04-01/2026-04-30",
         query={"eo:cloud_cover": {"lt": 10}},
     )
     items = list(search.items())
@@ -47,21 +52,23 @@ def download_sentinel_image(
         print("No items found for the given boundary")
         return
 
-    ## sorting items
+    # sorting items
     items = sorted(
         items, key=lambda item: item.datetime or datetime(1900, 1, 1), reverse=True
     )
-    item = items[0]
-    item = pc.sign(item)
+    # item = items[0]
+    # item = pc.sign(item)
+    items = [pc.sign(item) for item in items]
 
     bands = ["red", "green", "blue"]
-    data = stac_load([item], bands=bands, intersects=boundary)
+    data = stac_load(items[:10], bands=bands, intersects=boundary)
     data.attrs["category"] = category_name
     data.attrs["lat"] = lat
     data.attrs["lon"] = lon
+    
+    median_data = data.median(dim="time")
 
-    save_name = os.path.join(output_dir, f"{save_name}.ncf")
-    data.to_netcdf(save_name)
+    median_data.to_netcdf(save_path)
 
 
 def get_locations_from_json(json_path: str) -> List[Dict[str, Any]]:
