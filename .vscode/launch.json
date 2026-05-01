@@ -11,7 +11,8 @@
             "args": [
                 "--split-dir", "data/features/ghana",
                 "--input-dir", "data/features/ghana",
-                "--output-dir", "predictions"
+                "--output-dir", "predictions",
+                "--model-id", "svm"
             ]
         }
     ]
