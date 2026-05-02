@@ -18,7 +18,8 @@ import random
 from requests.exceptions import RequestException
 import socket
 
-def retry(func, retries=5, delay=2, backoff=2, exceptions=(Exception,)):
+
+def retry(func, retries=10, delay=2, backoff=2, exceptions=(Exception,)):
     """Retry a function with exponential backoff."""
     for attempt in range(retries):
         try:
@@ -26,10 +27,18 @@ def retry(func, retries=5, delay=2, backoff=2, exceptions=(Exception,)):
         except exceptions as e:
             if attempt == retries - 1:
                 raise  # re-raise last error
-            
-            sleep_time = delay * (backoff ** attempt) + random.uniform(0, 1)
-            print(f"Retry {attempt+1}/{retries} failed: {e}. Sleeping {sleep_time:.2f}s...")
+
+            sleep_time = delay * (backoff**attempt) + random.uniform(0, 1)
+            print(
+                f"Retry {attempt+1}/{retries} failed: {e}. Sleeping {sleep_time:.2f}s..."
+            )
             time.sleep(sleep_time)
+
+
+from requests.exceptions import RequestException
+import socket
+
+RETRY_EXCEPTIONS = (RequestException, TimeoutError, socket.timeout, pystac_client.exceptions.APIError)
 
 
 def download_sentinel_image(
@@ -40,12 +49,11 @@ def download_sentinel_image(
     save_name: str,
     tile_size: int = 640,
 ):
-    """Download Sentinel-2 images for the given boundary and save them as NetCDF files."""
     save_path = os.path.join(output_dir, f"{save_name}.ncf")
-    
+
     if os.path.exists(save_path):
         return
-    
+
     meters_per_degree = 111320.0
     tile_size_degrees = tile_size / meters_per_degree
 
@@ -59,35 +67,102 @@ def download_sentinel_image(
     client = pystac_client.Client.open(
         "https://planetarycomputer.microsoft.com/api/stac/v1"
     )
-    search = client.search(
-        collections=["sentinel-2-l2a"],
-        intersects=boundary,
-        datetime="2025-12-01/2026-04-30",
-        query={"eo:cloud_cover": {"lt": 10}},
-    )
-    items = list(search.items())
+
+    def search_items():
+        search = client.search(
+            collections=["sentinel-2-l2a"],
+            intersects=boundary,
+            datetime="2025-12-01/2026-04-30",
+            query={"eo:cloud_cover": {"lt": 10}},
+        )
+        return list(search.items())
+
+    items = retry(search_items, exceptions=RETRY_EXCEPTIONS)
 
     if not items:
         print("No items found for the given boundary")
         return
 
-    # sorting items
     items = sorted(
         items, key=lambda item: item.datetime or datetime(1900, 1, 1), reverse=True
     )
-    # item = items[0]
-    # item = pc.sign(item)
     items = [pc.sign(item) for item in items]
 
     bands = ["red", "green", "blue"]
-    data = stac_load(items[:10], bands=bands, intersects=boundary)
+
+    def load_data():
+        return stac_load(items[:10], bands=bands, intersects=boundary)
+
+    data = retry(load_data, exceptions=RETRY_EXCEPTIONS)
+
     data.attrs["category"] = category_name
     data.attrs["lat"] = lat
     data.attrs["lon"] = lon
-    
+
     median_data = data.median(dim="time")
 
-    median_data.to_netcdf(save_path)
+    def save_file():
+        median_data.to_netcdf(save_path)
+
+    retry(save_file, exceptions=RETRY_EXCEPTIONS)
+
+
+# def download_sentinel_image(
+#     lat: float,
+#     lon: float,
+#     output_dir: str,
+#     category_name: str,
+#     save_name: str,
+#     tile_size: int = 640,
+# ):
+#     """Download Sentinel-2 images for the given boundary and save them as NetCDF files."""
+#     save_path = os.path.join(output_dir, f"{save_name}.ncf")
+
+#     if os.path.exists(save_path):
+#         return
+
+#     meters_per_degree = 111320.0
+#     tile_size_degrees = tile_size / meters_per_degree
+
+#     boundary = box(
+#         lon - tile_size_degrees / 2,
+#         lat - tile_size_degrees / 2,
+#         lon + tile_size_degrees / 2,
+#         lat + tile_size_degrees / 2,
+#     )
+
+#     client = pystac_client.Client.open(
+#         "https://planetarycomputer.microsoft.com/api/stac/v1"
+#     )
+#     search = client.search(
+#         collections=["sentinel-2-l2a"],
+#         intersects=boundary,
+#         datetime="2025-12-01/2026-04-30",
+#         query={"eo:cloud_cover": {"lt": 10}},
+#     )
+#     items = list(search.items())
+
+#     if not items:
+#         print("No items found for the given boundary")
+#         return
+
+#     # sorting items
+#     items = sorted(
+#         items, key=lambda item: item.datetime or datetime(1900, 1, 1), reverse=True
+#     )
+#     # item = items[0]
+#     # item = pc.sign(item)
+#     items = [pc.sign(item) for item in items]
+
+#     bands = ["red", "green", "blue"]
+#     data = stac_load(items[:10], bands=bands, intersects=boundary)
+#     data.attrs["category"] = category_name
+#     data.attrs["lat"] = lat
+#     data.attrs["lon"] = lon
+
+#     median_data = data.median(dim="time")
+
+#     median_data.to_netcdf(save_path)
 
 
 def get_locations_from_json(json_path: str) -> List[Dict[str, Any]]:
@@ -119,7 +194,7 @@ if __name__ == "__main__":
 
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir, exist_ok=True)
-                
+
             if os.path.exists(os.path.join(save_dir, f"{location['id']}.ncf")):
                 continue
 
