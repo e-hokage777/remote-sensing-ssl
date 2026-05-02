@@ -13,6 +13,25 @@ from argparse import ArgumentParser
 from typing import Dict, List, Any
 
 
+import time
+import random
+from requests.exceptions import RequestException
+import socket
+
+def retry(func, retries=5, delay=2, backoff=2, exceptions=(Exception,)):
+    """Retry a function with exponential backoff."""
+    for attempt in range(retries):
+        try:
+            return func()
+        except exceptions as e:
+            if attempt == retries - 1:
+                raise  # re-raise last error
+            
+            sleep_time = delay * (backoff ** attempt) + random.uniform(0, 1)
+            print(f"Retry {attempt+1}/{retries} failed: {e}. Sleeping {sleep_time:.2f}s...")
+            time.sleep(sleep_time)
+
+
 def download_sentinel_image(
     lat: float,
     lon: float,
@@ -43,7 +62,7 @@ def download_sentinel_image(
     search = client.search(
         collections=["sentinel-2-l2a"],
         intersects=boundary,
-        datetime="2025-04-01/2026-04-30",
+        datetime="2025-12-01/2026-04-30",
         query={"eo:cloud_cover": {"lt": 10}},
     )
     items = list(search.items())
