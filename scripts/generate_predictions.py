@@ -11,10 +11,12 @@ import matplotlib.pyplot as plt
 
 
 def get_train_test_split(df, train_files, test_files):
+    
+    
     base_names = df["image_name"].str.split("/").str[-1]
 
-    df_train = df[base_names.isin(train_files)]
-    df_test = df[base_names.isin(test_files)]
+    df_train = df[base_names.isin(train_files)].dropna()
+    df_test = df[base_names.isin(test_files)].dropna()
 
     # X_train = df_train.filter(regex="^feature")
     # y_train = df_train["label"]
@@ -91,7 +93,7 @@ def select_model(model_id):
     if model_id == "logistic":
         from sklearn.linear_model import LogisticRegression
 
-        return LogisticRegression()
+        return LogisticRegression(max_iter=10_000)
 
 
 if __name__ == "__main__":
