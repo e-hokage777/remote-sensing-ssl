@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 def get_train_test_split(df, train_files, test_files):
     
     
-    base_names = df["image_name"].str.split("/").str[-1]
+    base_names = df["image_name"].str.split(r"[/\\]").str[-1]
 
     df_train = df[base_names.isin(train_files)].dropna()
     df_test = df[base_names.isin(test_files)].dropna()
@@ -67,7 +67,7 @@ def create_confusion_matrix(y_true, y_pred, label_map, save_path):
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument("--model-id", type=str, default="random_forset")
+    parser.add_argument("--model-id", type=str, default="rf")
     parser.add_argument("--split-dir", type=str, required=True)
     parser.add_argument("--input-dir", type=str, required=True)
     parser.add_argument("--output-dir", type=str, required=True)
@@ -75,7 +75,7 @@ def parse_args():
 
 
 def select_model(model_id):
-    if model_id == "random_forset":
+    if model_id == "rf":
         from sklearn.ensemble import RandomForestClassifier
 
         return RandomForestClassifier()
@@ -90,7 +90,7 @@ def select_model(model_id):
 
         return KNeighborsClassifier()
     
-    if model_id == "logistic":
+    if model_id == "lr":
         from sklearn.linear_model import LogisticRegression
 
         return LogisticRegression(max_iter=10_000)
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         pipeline.fit(X_train, y_train)
 
         ## creating label map
-        label_names = df_test["image_name"].str.split("/").str[-2]
+        label_names = df_test["image_name"].str.split(r"[/\\]").str[-2]
         label_map = (
             df_test[["label", "label_names"]]
             .drop_duplicates()
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         ## predicting
         preds_df = predict(pipeline, X_test)
         preds_df["image_name"] = df_test["image_name"]
-        preds_df["label_names"] = df_test["image_name"].str.split("/").str[-2]
+        preds_df["label_names"] = df_test["image_name"].str.split(r"[/\\]").str[-2]
         preds_df["target"] = y_test
 
         output_dir = os.path.join(args.output_dir, args.model_id)

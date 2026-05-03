@@ -1,0 +1,6 @@
+,barlow,barlow,byol,byol,moco,moco,simclr,simclr
+,eurosat,resisc45,eurosat,resisc45,eurosat,resisc45,eurosat,resisc45
+knn,,,,,,,,
+lr,,,,,,,,
+rf,,,,,,,,
+svm,0.5271186440677966,0.5074067694427697,0.4749913812916571,0.4749989226769322,0.4833333333333333,0.4829547903288367,0.5391873842044035,0.5269827586206897

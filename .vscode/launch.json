@@ -22,8 +22,16 @@
         "--output-dir",
         "predictions",
         "--model-id",
-        "svm"
+        "${input:modelId}"
       ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "modelId",
+      "type": "promptString",
+      "description": "Enter model id [lr, rf, svm, knn]",
+      "default": "rf"
     }
   ]
 }

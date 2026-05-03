@@ -7,10 +7,18 @@ from argparse import ArgumentParser
 from glob import glob
 import math
 import os
+from sklearn.preprocessing import StandardScaler
 
 
 def reduce_dimension(df: pd.DataFrame, n_components=2) -> pd.DataFrame:
-    tsne = TSNE(n_components=n_components, perplexity=30)
+    tsne = TSNE(
+        n_components=n_components,
+        perplexity=30,
+        random_state=42,
+        max_iter=2000,
+        verbose=1,
+    )
+    features = StandardScaler().fit_transform(df)
     reduced_data = tsne.fit_transform(df)
     reduced_df = pd.DataFrame(
         reduced_data, columns=[f"component_{i}" for i in range(n_components)]
@@ -29,13 +37,12 @@ def plot_scatter(
         component_2
     ), "Both components must have the same length"
 
-    
     if c is not None:
         # Get unique labels and create a color map
         unique_labels = sorted(set(c))
         colors = plt.cm.tab10(range(len(unique_labels)))
         label_to_color = {label: colors[i] for i, label in enumerate(unique_labels)}
-        
+
         for label in unique_labels:
             mask = [i for i, val in enumerate(c) if val == label]
             axis.scatter(
@@ -44,11 +51,11 @@ def plot_scatter(
                 s=16,
                 c=[label_to_color[label]],
                 label=str(label),
-                cmap="tab10"
+                cmap="tab10",
             )
     else:
         axis.scatter(component_1, component_2, s=16, c=c, cmap="tab10")
-    
+
     axis.set_xlabel("Component 1")
     axis.set_ylabel("Component 2")
     axis.set_title(title)
@@ -94,8 +101,6 @@ def generate_individual_plots(root_dir: str, dataset_id: str, save_path: str):
 
     assert len(files) > 0, f"No csv files found like {root_dir}/{dataset_id}*.csv"
 
-    
-
     for i, file in enumerate(files):
         fig, axis = plt.subplots(1, 1, figsize=(12, 6))
         title = os.path.basename(file).split(".")[0]
@@ -114,17 +119,20 @@ def generate_individual_plots(root_dir: str, dataset_id: str, save_path: str):
 
         # plt.colorbar()
         plt.tight_layout()
-        plt.savefig(save_path + "-" + os.path.basename(file).split(".")[0] + ".png")
+        plt.savefig(save_path + os.path.basename(file).split(".")[0] + ".png")
         plt.close()
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--root_dir", type=str, required=True)
-    parser.add_argument("--dataset_id", type=str, required=True)
-    parser.add_argument("--output", type=str, required=True)
+    parser.add_argument("--root_dir", type=str, default="data/features/ghana")
+    parser.add_argument("--dataset_id", type=str, default="ghana")
+    parser.add_argument("--output", type=str, default="plots/scatter/")
 
     args = parser.parse_args()
+
+    if not os.path.exists(args.output):
+        os.makedirs(args.output, exist_ok=True)
 
     # generate_plot(args.root_dir, args.dataset_id, args.output)
     generate_individual_plots(args.root_dir, args.dataset_id, args.output)
